@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     # =============== train ================== #
     for E in range(config.epoch):
-        print("epoch{}: ".format(E + 1))
+        print("epoch{0}: ".format(E + 1))
         model.train()
         epochLoss = 0
         for data, label in tqdm(trainDataLoader):
@@ -67,7 +67,7 @@ if __name__ == "__main__":
             optimizer.step()
             optimizer.zero_grad()
 
-        print("epoch {} loss: {}".format(E + 1, epochLoss))
+        print("epoch {0} loss: {1}".format(E + 1, epochLoss))
 
         with torch.no_grad():
             model.eval()
@@ -81,7 +81,7 @@ if __name__ == "__main__":
                 impressAuc += testLable[k].shape[0] * auc
                 impressionNum += testLable[k].shape[0]
 
-            print("epoch {} evaluation auc: {}".format(E + 1, impressAuc / impressionNum))
+            print("epoch {0} evaluation auc: {1}".format(E + 1, impressAuc / impressionNum))
 
         print('Epoch-{0} lr: {1}'.format(E + 1, optimizer.param_groups[0]['lr']))
         if (E + 1) % config.decayStep == 0:
