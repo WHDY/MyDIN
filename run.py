@@ -17,7 +17,8 @@ if __name__ == "__main__":
 
     # ============== load data ============== #
     dataset = dataGenerator(dataPath=config.dataPath, ratingBinThreshold=config.ratingBinThreshold,
-                            maxSequenceLen=config.maxSequenceLen, splitRatio=config.splitRatio)
+                            maxSequenceLen=config.maxSequenceLen,
+                            splitRatio=config.splitRatio, splitMehtod=config.splitMethod)
     # train dataset
     trainRowData, trainLabel = map(torch.tensor, (dataset.trainRowData, dataset.trainLabel))
     trainDataLoader = DataLoader(dataset=TensorDataset(trainRowData, trainLabel),
@@ -69,17 +70,25 @@ if __name__ == "__main__":
 
         with torch.no_grad():
             model.eval()
-            impressionNum = 0.0
-            impressAuc = 0.0
-            for k in range(len(testRowData)):
-                data, label = testRowData[k].to(dev), testLable[k]
+            if config.splitMethod == 'user':
+                impressionNum = 0.0
+                impressAuc = 0.0
+                for k in range(len(testRowData)):
+                    data, label = testRowData[k].to(dev), testLable[k]
+                    preds = model.predict(data, userFeatures, movieFeatures)
+                    auc = metricFunc(label, preds)
+
+                    impressAuc += testLable[k].shape[0] * auc
+                    impressionNum += testLable[k].shape[0]
+
+                print("epoch {0} evaluation auc: {1}".format(E + 1, impressAuc / impressionNum))
+            elif config.splitMethod == 'behavior':
+                data = torch.vstack(testRowData).to(dev)
+                label = torch.hstack(testLable)
                 preds = model.predict(data, userFeatures, movieFeatures)
                 auc = metricFunc(label, preds)
 
-                impressAuc += testLable[k].shape[0] * auc
-                impressionNum += testLable[k].shape[0]
-
-            print("epoch {0} evaluation auc: {1}".format(E + 1, impressAuc / impressionNum))
+                print("epoch {0} evaluation auc: {1}".format(E + 1, auc))
 
         print('Epoch-{0} lr: {1}'.format(E + 1, optimizer.param_groups[0]['lr']))
         if (E + 1) % config.decayStep == 0:

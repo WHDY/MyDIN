@@ -8,12 +8,13 @@ class dataGenerator(object):
     """
     preprocess and make dataset
     """
-    def __init__(self, dataPath, ratingBinThreshold, maxSequenceLen, splitRatio=0.7):
+    def __init__(self, dataPath, ratingBinThreshold, maxSequenceLen, splitRatio=0.7, splitMehtod='behavior'):
         super(dataGenerator, self).__init__()
 
         self.ratingThreshold = ratingBinThreshold
         self.maxSequenceLen = maxSequenceLen
         self.splitRation = splitRatio
+        self.splitMethod = splitMehtod
 
         # load data
         print("preparing data...")
@@ -144,20 +145,40 @@ class dataGenerator(object):
         for userId in range(1, np.max(self.rowData[:, 0]) + 1):
             index = np.where(self.rowData[:, 0] == userId)
 
-            if np.max(self.label[index]) != np.min(self.label[index]):
+            if self.splitMethod == 'user' and \
+                    (np.max(self.label[index]) != np.min(self.label[index])):  # drop users with whole 1/0 label
                 userRowData.append(self.rowData[index])
                 userLabel.append(self.label[index])
 
-        shuffleOrders = np.random.permutation(np.arange(len(userRowData)))
-        splitPoint = np.int64(self.splitRation * len(userRowData))
+            userRowData.append(self.rowData[index])
+            userLabel.append(self.label[index])
 
-        trainRowdata = [userRowData[shuffleOrders[k]] for k in range(splitPoint)]
-        trainLabel = [userLabel[shuffleOrders[k]] for k in range(splitPoint)]
-        self.trainRowData = np.vstack(trainRowdata)
-        self.trainLabel = np.hstack(trainLabel)
+        if self.splitMethod == 'user':
+            shuffleOrders = np.random.permutation(np.arange(len(userRowData)))
+            splitPoint = np.int64(self.splitRation * len(userRowData))
 
-        self.testRowData = [userRowData[shuffleOrders[k]] for k in range(splitPoint, len(shuffleOrders))]
-        self.testLabel = [userLabel[shuffleOrders[k]] for k in range(splitPoint, len(shuffleOrders))]
+            self.trainRowdata = [userRowData[shuffleOrders[k]] for k in range(splitPoint)]
+            self.trainLabel = [userLabel[shuffleOrders[k]] for k in range(splitPoint)]
+            self.trainRowData = np.vstack(self.trainRowdata)
+            self.trainLabel = np.hstack(self.trainLabel)
+
+            self.testRowData = [userRowData[shuffleOrders[k]] for k in range(splitPoint, len(shuffleOrders))]
+            self.testLabel = [userLabel[shuffleOrders[k]] for k in range(splitPoint, len(shuffleOrders))]
+
+        elif self.splitMethod == 'behavior':
+            self.trainRowData = [userRowData[i][0: np.int64(userRowData[i].shape[0]*self.splitRation)]
+                            for i in range(len(userRowData))]
+            self.trainLabel = [userLabel[i][0: np.int64(userLabel[i].shape[0]*self.splitRation)]
+                          for i in range(len(userLabel))]
+            self.trainRowData = np.vstack(self.trainRowData)
+            self.trainLabel = np.hstack(self.trainLabel)
+
+            self.testRowData = [userRowData[i][np.int64(userRowData[i].shape[0]*self.splitRation):]
+                                for i in range(len(userRowData))]
+            self.testLabel = [userLabel[i][np.int64(userLabel[i].shape[0]*self.splitRation):]
+                          for i in range(len(userLabel))]
+        else:
+            pass
 
 
 def getDatasetInfo(path):
@@ -247,7 +268,10 @@ def getDatasetInfo(path):
 
 
 if __name__ == "__main__":
-    dataset = dataGenerator(r"./dataset", 3, 50)
+    dataset = dataGenerator(dataPath=r"./dataset",
+                            ratingBinThreshold=3, maxSequenceLen=10,
+                            splitRatio=0.8,
+                            splitMehtod='behavior')
     print(dataset.rowData)
     print(dataset.label)
     print(dataset.userFeatures)

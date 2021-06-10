@@ -11,8 +11,9 @@ class Config():
         self.dataPath = './dataset'
         self.ratingBinThreshold = 3
         self.maxSequenceLen = 10
-        self.splitRatio = 0.7
+        self.splitRatio = 0.8
         self.batchSize = 100
+        self.splitMethod = 'behavior'  # 'user'
 
         # ========== model ============= #
         # embedding layer info:
