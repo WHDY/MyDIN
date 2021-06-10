@@ -30,8 +30,6 @@ if __name__ == "__main__":
     movieFeatures = torch.tensor(dataset.movieFeatures).to(dev)
 
     # ============= load model =============== #
-    # embedding layer info:
-    # embeddingGroups[embeddingGroupName] = (vocabulary size, embedding size)
     model = DIN(embeddingGroupInfo=config.embeddingGroups,
                 MLPInfo=config.MLPInfo,
                 attMLPInfo=config.AttMLPInfo,

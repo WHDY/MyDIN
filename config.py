@@ -15,6 +15,8 @@ class Config():
         self.batchSize = 100
 
         # ========== model ============= #
+        # embedding layer info:
+        # embeddingGroups[embeddingGroupName] = (vocabulary size, embedding size)
         self.embeddingGroups = {'MovieId': (3953, 16), 'Genre': (19, 8)}
         # 不使用户信息
         # 如果使用: {'Gender': (2, 8), 'Age': (7, 8), 'Occupation': (21, 8), 'MovieId': (3953, 16), 'Genre': (19, 8)}
