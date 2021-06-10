@@ -13,7 +13,7 @@ class Config():
         self.maxSequenceLen = 10
         self.splitRatio = 0.8
         self.batchSize = 100
-        self.splitMethod = 'behavior'  # 'user'
+        self.splitMethod = 'behavior'  # 'user' 分割数据集时按照用户分还是按照每个用户的行为序列分
 
         # ========== model ============= #
         # embedding layer info:
@@ -21,8 +21,8 @@ class Config():
         self.embeddingGroups = {'MovieId': (3953, 16), 'Genre': (19, 8)}
         # 不使用户信息
         # 如果使用: {'Gender': (2, 8), 'Age': (7, 8), 'Occupation': (21, 8), 'MovieId': (3953, 16), 'Genre': (19, 8)}
-        self.MLPInfo = [48, 200, 80]  # 不使用用户信息, 如果使用: [72, 200, 80]
-        self.AttMLPInfo = [72, 36]
+        self.MLPInfo = [48, 200, 80]  # 不使用用户、电影类别信息， 如果使用：[72, 200, 80]
+        self.AttMLPInfo = [72, 36]  # 不使用用户、电影类别信息， 如果使用：[72, 36]
         self.isUseBN = True
         self.l2RegEmbedding = 0
         self.dropoutRate = 0.2
@@ -33,19 +33,19 @@ class Config():
         # ============ train =========== #
         self.epoch = 30
 
-        self.learningRate = 0.1
+        self.learningRate = 0.01
 
         # 0.2+ < 0.51 | 0.1 < 0.63 | 0.05 < 0.6 | 0.01 < 0.58 | 0.005 < 0.56 | 0.001 < 0.55
         # 0.1 + BM < 0.63 | 0.1 + BM + dropout < 0.62
         # + l2 1e-6 < 0.615 | 1e-5 : < 0.62 | 1e-4: < 0.62 | 1e-3: < 0.63 | 1e-2: < 0.61 | 1e-1: < 0.6 | 1: < 0.6
         # best lr 0.1, batchSize 100, BM/dropout/l2 arbitrary
-        self.optimizer = torch.optim.SGD
+        # self.optimizer = torch.optim.SGD
 
         # 0.05+ < 0.51 | 0.02 0.61 | 0.01 0.65-0.707 | 0.007 < 0.7 | 0.005 < 0.7 | 0.001 0.65?
         # self.optimizer = torch.optim.Adagrad
 
         # 0.02+ < 0.51 | 0.01 0.72 | 0.005 0.72 | 0.001 0.72
-        # self.optimizer = torch.optim.Adam
+        self.optimizer = torch.optim.Adam
 
         self.decay = 0.1
         self.decayStep = 10
