@@ -1,5 +1,6 @@
 import os
 from tqdm import tqdm
+import numpy as np
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 
@@ -24,8 +25,19 @@ if __name__ == "__main__":
     trainDataLoader = DataLoader(dataset=TensorDataset(trainRowData, trainLabel),
                                  batch_size=config.batchSize, shuffle=True)
     # test dataset
-    testRowData = [torch.tensor(x) for x in dataset.testRowData]
-    testLable = [torch.tensor(x) for x in dataset.testLabel]
+    # testRowdata, testLable = [], []
+    # for userId in range(1, dataset.testRowData[-1, 0] + 1):
+    #     index = np.where(dataset.testRowData[:, 0] == userId)
+    #     tempData, tempLabel = dataset.testRowData[index], dataset.testLabel[index]
+    #     if np.max(tempLabel) != np.min(tempLabel):
+    #         testRowdata.append(tempData)
+    #         testLable.append(tempLabel)
+    # testRowData = [torch.tensor(rowData) for rowData in testRowdata]
+    # testLable = [torch.tensor(label) for label in testLable]
+    testRowData, testLabel = map(torch.tensor, (dataset.testRowData, dataset.testLabel))
+    testDataLoader = DataLoader(dataset=TensorDataset(testRowData, testLabel),
+                                batch_size=1000, shuffle=True)
+
     # user features and movie features
     userFeatures = torch.tensor(dataset.userFeatures).to(dev)
     movieFeatures = torch.tensor(dataset.movieFeatures).to(dev)
@@ -70,25 +82,26 @@ if __name__ == "__main__":
 
         with torch.no_grad():
             model.eval()
-            if config.splitMethod == 'user':
-                impressionNum = 0.0
-                impressAuc = 0.0
-                for k in range(len(testRowData)):
-                    data, label = testRowData[k].to(dev), testLable[k]
-                    preds = model.predict(data, userFeatures, movieFeatures)
-                    auc = metricFunc(label, preds)
 
-                    impressAuc += testLable[k].shape[0] * auc
-                    impressionNum += testLable[k].shape[0]
+            impressionNum = 0.0
+            impressAuc = 0.0
 
-                print("epoch {0} evaluation auc: {1}".format(E + 1, impressAuc / impressionNum))
-            elif config.splitMethod == 'behavior':
-                data = torch.vstack(testRowData).to(dev)
-                label = torch.hstack(testLable)
+            # for k in range(len(testRowData)):
+            #     data, label = testRowData[k].to(dev), testLable[k]
+            #     preds = model.predict(data, userFeatures, movieFeatures)
+            #     auc = metricFunc(label, preds)
+            #
+            #     impressAuc += testLable[k].shape[0] * auc
+            #     impressionNum += testLable[k].shape[0]
+
+            for data, label in tqdm(testDataLoader):
+                data = data.to(dev)
                 preds = model.predict(data, userFeatures, movieFeatures)
                 auc = metricFunc(label, preds)
+                impressionNum += 1
+                impressAuc += auc
 
-                print("epoch {0} evaluation auc: {1}".format(E + 1, auc))
+            print("epoch {0} evaluation auc: {1}".format(E + 1, impressAuc / impressionNum))
 
         print('Epoch-{0} lr: {1}'.format(E + 1, optimizer.param_groups[0]['lr']))
         if (E + 1) % config.decayStep == 0:

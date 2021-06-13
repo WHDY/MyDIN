@@ -6,15 +6,15 @@ class Config():
     def __init__(self):
         # ==== cuda environments ======= #
         self.gpu = '0,1,2,3'
-        self.cuda = 'cuda:3'
+        self.cuda = 'cuda'
 
         # ========= dataset ============ #
-        self.dataPath = './dataset'
+        self.dataPath = './dataset/MovieLens1M/'
         self.ratingBinThreshold = 3
         self.maxSequenceLen = 10
         self.splitRatio = 0.8
-        self.batchSize = 100
-        self.splitMethod = 'behavior'  # 'user' 分割数据集时按照用户分还是按照每个用户的行为序列分
+        self.batchSize = 256
+        self.splitMethod = 'behavior'  # 'user' 分割数据集时按照用户分还是按照每个用户的行为序列分, 按 'behavior' 更加普遍
 
         # ========== model ============= #
         # embedding layer info:
@@ -22,11 +22,13 @@ class Config():
         self.embeddingGroups = {'MovieId': (3953, 16), 'Genre': (19, 8)}
         # 不使用户信息
         # 如果使用: {'Gender': (2, 8), 'Age': (7, 8), 'Occupation': (21, 8), 'MovieId': (3953, 16), 'Genre': (19, 8)}
+        # 1M {'MovieId': (3953, 16), 'Genre': (19, 8)}
+        # 20M {'MovieId': (27279, 16), 'Genre': (21, 8)}
         self.MLPInfo = [48, 200, 80]  # 不使用用户、电影类别信息， 如果使用：[72, 200, 80]
         self.AttMLPInfo = [72, 36]  # 不使用用户、电影类别信息， 如果使用：[72, 36]
         self.isUseBN = True
-        self.l2RegEmbedding = 0  # ================================================================================================================
-        self.dropoutRate = 0.0  # ================================================================================================================
+        self.l2RegEmbedding = 0
+        self.dropoutRate = 0.0
 
         # !!!这是个不合理的参数初始化方式，std太小会使得参数初始值都近乎为0，导致不管模型输入是什么，输出几乎一样(甚至直接一样)
         self.initStd = 0.0001
@@ -49,7 +51,7 @@ class Config():
         # self.optimizer = torch.optim.Adam
 
         self.decay = 0.1
-        self.decayStep = 15
+        self.decayStep = 30
         self.lrSchedule = torch.optim.lr_scheduler.ExponentialLR
 
         self.lossFunc = torch.nn.functional.binary_cross_entropy

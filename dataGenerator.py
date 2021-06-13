@@ -11,6 +11,7 @@ class dataGenerator(object):
     def __init__(self, dataPath, ratingBinThreshold, maxSequenceLen, splitRatio=0.7, splitMehtod='behavior'):
         super(dataGenerator, self).__init__()
 
+        self.dataPath = dataPath
         self.ratingThreshold = ratingBinThreshold
         self.maxSequenceLen = maxSequenceLen
         self.splitRation = splitRatio
@@ -18,90 +19,157 @@ class dataGenerator(object):
 
         # load data
         print("preparing data...")
-        unames = ['user_id', 'gender', 'age', 'occupation', 'zip']
-        rnames = ['user_id', 'movie_id', 'rating', 'timestamp']
-        mnames = ['movie_id', 'title', 'genres']
-        self.userFeatures = pd.read_table(os.path.join(dataPath, 'users.dat'),
-                                          sep='::', header=None, names=unames, engine='python')
-        self.movieFeatures = pd.read_table(os.path.join(dataPath, 'movies.dat'),
-                                           sep='::', header=None, names=mnames, engine='python')
-        self.ratings = pd.read_table(os.path.join(dataPath, 'ratings.dat'),
-                                     sep='::', header=None, names=rnames, engine='python')
+        if os.path.exists(os.path.join(self.dataPath, 'trainRowData.npy')) is False:
+            if '1M' in self.dataPath:
+                unames = ['user_id', 'gender', 'age', 'occupation', 'zip']
+                rnames = ['user_id', 'movie_id', 'rating', 'timestamp']
+                mnames = ['movie_id', 'title', 'genres']
+                self.userFeatures = pd.read_table(os.path.join(dataPath, 'users.dat'),
+                                                  sep='::', header=None, names=unames, engine='python')
+                self.movieFeatures = pd.read_table(os.path.join(dataPath, 'movies.dat'),
+                                                   sep='::', header=None, names=mnames, engine='python')
+                self.ratings = pd.read_table(os.path.join(dataPath, 'ratings.dat'),
+                                             sep='::', header=None, names=rnames, engine='python')
+            elif '20M' in self.dataPath:
+                self.userFeatures = [0]  # don't use
+                self.movieFeatures = pd.read_csv(os.path.join(dataPath, 'movies.csv'))
+                self.ratings = pd.read_csv(os.path.join(dataPath, 'ratings.csv'))
 
-        # preprocess data
-        self.preprocess()
+            # preprocess data
+            self.preprocess()
 
-        # make dataset
-        self.rowData = None
-        self.label = None
-        self.makeDataset()
+            # make dataset
+            self.rowData = None
+            self.label = None
+            self.makeDataset()
 
-        # split dataset: train(70%) and test(30%)
-        self.trainRowData = None
-        self.trainLabel = None
-        self.testRowData = None
-        self.testLabel = None
-        self.splitDataset()
+            # split dataset: train(70%) and test(30%)
+            self.trainRowData = None
+            self.trainLabel = None
+            self.testRowData = None
+            self.testLabel = None
+            self.splitDataset()
+
+            # save
+            np.save(os.path.join(self.dataPath, 'trainRowData.npy'), self.trainRowData)
+            np.save(os.path.join(self.dataPath, 'trainLabel.npy'), self.trainLabel)
+            np.save(os.path.join(self.dataPath, 'testRowdata.npy'), self.testRowData)
+            np.save(os.path.join(self.dataPath, 'testLabel.npy'), self.testLabel)
+            np.save(os.path.join(self.dataPath, 'userFeatures.npy'), self.userFeatures)
+            np.save(os.path.join(self.dataPath, 'movieFeatures.npy'), self.movieFeatures)
+
+        else:
+            self.trainRowData = np.load(os.path.join(self.dataPath, 'trainRowData.npy'), allow_pickle=True)
+            self.trainLabel = np.load(os.path.join(self.dataPath, 'trainLabel.npy'), allow_pickle=True)
+            self.testRowData = np.load(os.path.join(self.dataPath, 'testRowdata.npy'), allow_pickle=True)
+            self.testLabel = np.load(os.path.join(self.dataPath, 'testLabel.npy'), allow_pickle=True)
+            self.userFeatures = np.load(os.path.join(self.dataPath, 'userFeatures.npy'), allow_pickle=True)
+            self.movieFeatures = np.load(os.path.join(self.dataPath, 'movieFeatures.npy'), allow_pickle=True)
 
         print("finish preparing data!")
 
     def preprocess(self):
-        # ----------------------------------------- encode sparse feature ---------------------------------------------#
-        # users: gender F/M -> 0/1, age 1/18/25/... -> 0/1/2/...
-        lbe = LabelEncoder()
-        self.userFeatures['gender'] = lbe.fit_transform(self.userFeatures['gender'])
-        self.userFeatures['age'] = lbe.fit_transform(self.userFeatures['age'])
+        if '1M' in self.dataPath:
+            # --------------------------------------- encode sparse feature -------------------------------------------#
+            # users: gender F/M -> 0/1, age 1/18/25/... -> 0/1/2/...
+            lbe = LabelEncoder()
+            self.userFeatures['gender'] = lbe.fit_transform(self.userFeatures['gender'])
+            self.userFeatures['age'] = lbe.fit_transform(self.userFeatures['age'])
 
-        # movies: genres genre1|genre2|... -> genre1, genre2,...,NonGenre -> 0/1/2/...
-        maxLenGeners = ['genre1', 'genre2', 'genre3', 'genre4', 'genre5', 'genre6']
-        self.movieFeatures[maxLenGeners] = 'NonGenre'
-        # movies['len'] = 0
-        for idx, genres in enumerate(self.movieFeatures['genres'].values):
-            genreList = genres.split('|')
-            for id, genre in enumerate(genreList):
-                self.movieFeatures.loc[idx, 'genre{}'.format(id + 1)] = genre
-            # self.movieFeatures['len'][idx] = len(genreList)
+            # movies: genres genre1|genre2|... -> genre1, genre2,...,NonGenre -> 0/1/2/...
+            maxLenGeners = ['genre1', 'genre2', 'genre3', 'genre4', 'genre5', 'genre6']
+            self.movieFeatures[maxLenGeners] = 'NonGenre'
+            # movies['len'] = 0
+            for idx, genres in enumerate(self.movieFeatures['genres'].values):
+                genreList = genres.split('|')
+                for id, genre in enumerate(genreList):
+                    self.movieFeatures.loc[idx, 'genre{}'.format(id + 1)] = genre
+                # self.movieFeatures['len'][idx] = len(genreList)
 
-        encoderDict = {'NonGenre': 0, 'Action': 1, 'Adventure': 2, 'Animation': 3, "Children's": 4, 'Comedy': 5,
-                       'Crime': 6,
-                       'Documentary': 7, 'Drama': 8, 'Fantasy': 9, 'Film-Noir': 10, 'Horror': 11, 'Musical': 12,
-                       'Mystery': 13, 'Romance': 14, 'Sci-Fi': 15, 'Thriller': 16, 'War': 17, 'Western': 18}
-        for genre in maxLenGeners:
-            for idx, genrex in enumerate(self.movieFeatures[genre].values):
-                self.movieFeatures.loc[idx, genre] = encoderDict[genrex]
+            encoderDict = {'NonGenre': 0, 'Action': 1, 'Adventure': 2, 'Animation': 3, "Children's": 4, 'Comedy': 5,
+                           'Crime': 6,
+                           'Documentary': 7, 'Drama': 8, 'Fantasy': 9, 'Film-Noir': 10, 'Horror': 11, 'Musical': 12,
+                           'Mystery': 13, 'Romance': 14, 'Sci-Fi': 15, 'Thriller': 16, 'War': 17, 'Western': 18}
+            for genre in maxLenGeners:
+                for idx, genrex in enumerate(self.movieFeatures[genre].values):
+                    self.movieFeatures.loc[idx, genre] = encoderDict[genrex]
 
-        # self.movieFeatures[maxLenGeners] = \
-        #     lbe.fit_transform(self.movieFeatures[maxLenGeners].values.\
-        #                       reshape(self.movieFeatures.shape[0]*len(maxLenGeners))).\
-        #         reshape(self.movieFeatures.shape[0], -1)
+            # self.movieFeatures[maxLenGeners] = \
+            #     lbe.fit_transform(self.movieFeatures[maxLenGeners].values.\
+            #                       reshape(self.movieFeatures.shape[0]*len(maxLenGeners))).\
+            #         reshape(self.movieFeatures.shape[0], -1)
 
-        # ratings: rating 1/2/3/4/5 -> 0/0/0/1/1
-        binE = Binarizer(threshold=self.ratingThreshold)
-        self.ratings['rating'] = binE.fit_transform(self.ratings['rating'].values.reshape((-1, 1)))
+            # ratings: rating 1/2/3/4/5 -> 0/0/0/1/1
+            binE = Binarizer(threshold=self.ratingThreshold)
+            self.ratings['rating'] = binE.fit_transform(self.ratings['rating'].values.reshape((-1, 1)))
 
-        # -------------------------------------- drop features we don't use ------------------------------------------ #
-        self.userFeatures = self.userFeatures.drop(columns='user_id', axis=1)
-        self.userFeatures = self.userFeatures.drop(columns='zip', axis=1)
+            # ------------------------------------ drop features we don't use ---------------------------------------- #
+            self.userFeatures = self.userFeatures.drop(columns='user_id', axis=1)
+            self.userFeatures = self.userFeatures.drop(columns='zip', axis=1)
 
-        self.movieFeatures = self.movieFeatures.drop(columns='title', axis=1)
-        self.movieFeatures = self.movieFeatures.drop(columns='genres', axis=1)
+            self.movieFeatures = self.movieFeatures.drop(columns='title', axis=1)
+            self.movieFeatures = self.movieFeatures.drop(columns='genres', axis=1)
 
-        # ---------------------------------------- convert to numpy array -------------------------------------------- #
-        self.userFeatures, self.movieFeatures, self.ratings = \
-            map(lambda x: np.array(x, dtype=np.int64), [self.userFeatures, self.movieFeatures, self.ratings])
+            # -------------------------------------- convert to numpy array ------------------------------------------ #
+            self.userFeatures, self.movieFeatures, self.ratings = \
+                map(lambda x: np.array(x, dtype=np.int64), [self.userFeatures, self.movieFeatures, self.ratings])
 
-        # ----------------------------------------- fix users and movies --------------------------------------------- #
-        self.userFeatures = np.insert(self.userFeatures, 0, values=0, axis=0)
+            # --------------------------------------- fix users and movies ------------------------------------------- #
+            self.userFeatures = np.insert(self.userFeatures, 0, values=0, axis=0)
 
-        movies_ = np.zeros(shape=(self.movieFeatures[self.movieFeatures.shape[0] - 1, 0] + 1,
-                                  self.movieFeatures.shape[1]), dtype=np.int64)
-        movies_[self.movieFeatures[:, 0]] = self.movieFeatures
-        self.movieFeatures = movies_
+            movies_ = np.zeros(shape=(self.movieFeatures[self.movieFeatures.shape[0] - 1, 0] + 1,
+                                      self.movieFeatures.shape[1]), dtype=np.int64)
+            movies_[self.movieFeatures[:, 0]] = self.movieFeatures
+            self.movieFeatures = movies_
+        elif '20M' in self.dataPath:
+            # --------------------------------------- encode sparse feature -------------------------------------------#
+            # movies: genres genre1|genre2|... -> genre1, genre2,...,NonGenre -> 0/1/2/...
+            maxLenGeners = ['genre{}'.format(i) for i in range(1, 11)]
+            self.movieFeatures[maxLenGeners] = 'NonGenre'
+            for idx, genres in enumerate(self.movieFeatures['genres'].values):
+                genreList = genres.split('|')
+                for id, genre in enumerate(genreList):
+                    self.movieFeatures.loc[idx, 'genre{}'.format(id + 1)] = genre
+
+            encoderDict = {'NonGenre': 0, 'Adventure': 1, 'Animation': 2, 'Children': 3, 'Comedy': 4,
+                           'Fantasy': 5, 'Romance': 6, 'Drama': 7, 'Action': 8, 'Crime': 9,
+                           'Thriller': 10, 'Horror': 11, 'Mystery': 12, 'Sci-Fi': 13, 'IMAX': 14,
+                           'Documentary': 15, 'War': 16, 'Musical': 17, 'Western': 18, 'Film-Noir': 19,
+                           '(no genres listed)': 20}
+
+            for genre in maxLenGeners:
+                for idx, genrex in enumerate(self.movieFeatures[genre].values):
+                    self.movieFeatures.loc[idx, genre] = encoderDict[genrex]
+
+            # ratings: rating 1/2/3/4/5 -> 0/0/0/1/1
+            binE = Binarizer(threshold=self.ratingThreshold)
+            self.ratings['rating'] = binE.fit_transform(self.ratings['rating'].values.reshape((-1, 1)))
+
+            # ------------------------------------ drop features we don't use ---------------------------------------- #
+            self.movieFeatures = self.movieFeatures.drop(columns='title', axis=1)
+            self.movieFeatures = self.movieFeatures.drop(columns='genres', axis=1)
+
+            # -------------------------------------- convert to numpy array ------------------------------------------ #
+            self.userFeatures, self.movieFeatures, self.ratings = \
+                map(lambda x: np.array(x, dtype=np.int64), [self.userFeatures, self.movieFeatures, self.ratings])
+
+            # ----------------------------------------- build index map ---------------------------------------------- #
+            indexMap = {}
+            id = 1
+            for i in range(self.movieFeatures.shape[0]):
+                indexMap[self.movieFeatures[i, 0]] = id
+                self.movieFeatures[i, 0] = id
+                id = id + 1
+
+            for i in range(self.ratings.shape[0]):
+                self.ratings[i, 1] = indexMap[self.ratings[i, 1]]
+
+            self.movieFeatures = np.insert(self.movieFeatures, 0, values=0, axis=0)
 
     def makeDataset(self):
         # group by users
         clusterByUser = []
-        for userId in range(1, self.userFeatures.shape[0]):
+        for userId in range(1, self.ratings[-1, 0] + 1):
             clusterByUser.append(self.ratings[np.where(self.ratings[:, 0] == userId)])
 
         # sort behaviors by timestamp
@@ -142,13 +210,13 @@ class dataGenerator(object):
     def splitDataset(self):
         userRowData = []
         userLabel = []
-        for userId in range(1, np.max(self.rowData[:, 0]) + 1):
+        for userId in range(1, self.rowData[-1, 0] + 1):
             index = np.where(self.rowData[:, 0] == userId)
 
-            if self.splitMethod == 'user' and \
-                    (np.max(self.label[index]) != np.min(self.label[index])):  # drop users with whole 1/0 label
-                userRowData.append(self.rowData[index])
-                userLabel.append(self.label[index])
+            # if self.splitMethod == 'user' and \
+            #         (np.max(self.label[index]) != np.min(self.label[index])):  # drop users with whole 1/0 label
+            #     userRowData.append(self.rowData[index])
+            #     userLabel.append(self.label[index])
 
             userRowData.append(self.rowData[index])
             userLabel.append(self.label[index])
@@ -164,6 +232,8 @@ class dataGenerator(object):
 
             self.testRowData = [userRowData[shuffleOrders[k]] for k in range(splitPoint, len(shuffleOrders))]
             self.testLabel = [userLabel[shuffleOrders[k]] for k in range(splitPoint, len(shuffleOrders))]
+            self.testRowData = np.vstack(self.testRowData)
+            self.testLabel = np.hstack(self.testLabel)
 
         elif self.splitMethod == 'behavior':
             self.trainRowData = [userRowData[i][0: np.int64(userRowData[i].shape[0]*self.splitRation)]
@@ -177,104 +247,20 @@ class dataGenerator(object):
                                 for i in range(len(userRowData))]
             self.testLabel = [userLabel[i][np.int64(userLabel[i].shape[0]*self.splitRation):]
                           for i in range(len(userLabel))]
+            self.testRowData = np.vstack(self.testRowData)
+            self.testLabel = np.hstack(self.testLabel)
         else:
             pass
 
 
-def getDatasetInfo(path):
-    unames = ['user_id', 'gender', 'age', 'occupation', 'zip']
-    users = pd.read_table(path+'/users.dat', sep='::', header=None, names=unames, engine='python')
-    rnames = ['user_id', 'movie_id', 'rating', 'timestamp']
-    ratings = pd.read_table(path+'/ratings.dat', sep='::', header=None, names=rnames, engine='python')
-    mnames = ['movie_id', 'title', 'genres']
-    movies = pd.read_table(path+'/movies.dat', sep='::', header=None, names=mnames, engine='python')
-
-    print('---------------------------------- users details ---------------------------------------')
-    print(type(users))
-    print(users[0: 5])
-    print(type(users[0: 5]))
-    print(users[len(users) - 5: len(users)])
-    print(users[users.isnull().values==True])
-    for fname in unames:
-        print(fname, users[fname].nunique())
-
-    print('---------------------------------- movies details --------------------------------------')
-    print(movies[0: 5])
-    print(movies[len(movies) - 5: len(movies)])
-    print(movies[movies.isnull().values==True])
-    for fname in mnames:
-        print(fname, movies[fname].nunique())
-
-    genres = ['Action', 'Adventure', 'Animation', "Children's", 'Comedy', 'Crime', 'Documentary', 'Documentary',
-              'Drama', 'Fantasy', 'Film-Noir', 'Horror', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller',
-              'War', 'Western']
-    maxlen = 0;
-    for i in movies['genres'].values:
-        maxlen = max(maxlen, len(i.split('|')))
-    print("max genres: {}".format(maxlen))
-
-    print('--------------------------------- ratings details --------------------------------------')
-    print(ratings[0: 5])
-    print(ratings[len(ratings) - 5: len(ratings)])
-    print(ratings[ratings.isnull().values==True])
-    for fname in ratings:
-        print(fname, ratings[fname].nunique())
-
-    print('---------------------------------- to numpy array --------------------------------------')
-    users = np.array(users)
-    movies = np.array(movies)
-    ratings = np.array(ratings)
-
-    print(users)
-    print(users[0, 0], type(users[0, 0]))
-    print(users[0, 1], type(users[0, 1]))
-    print(users[0, 2], type(users[0, 2]))
-    print(users[0, 3], type(users[0, 3]))
-    print(users[0, 4], type(users[0, 4]))
-
-    print(movies)
-    print(movies[0, 0], type(movies[0, 0]))
-    print(movies[0, 1], type(movies[0, 1]))
-    print(movies[0, 2], type(movies[0, 2]))
-
-    print(ratings)
-    print(ratings[0, 0], type(ratings[0, 0]))
-    print(ratings[0, 1], type(ratings[0, 1]))
-    print(ratings[0, 2], type(ratings[0, 2]))
-    print(ratings[0, 3], type(ratings[0, 3]))
-
-    print('--------------------------------- dataset details --------------------------------------')
-    print("size of users: {}".format(len(users)))
-    print("size of movies: {}".format(len(movies)))
-    print("size of ratings: {}".format(len(ratings)))
-    print("average number of movies rated: {}".format(len(ratings) / len(users)))
-
-    idx = 1
-    missing = []
-    for i in range(movies.shape[0]):
-        if movies[i, 0] != idx:
-            while idx != movies[i, 0]:
-                missing.append(idx)
-                idx = idx + 1
-        idx = idx + 1
-
-    print("missing movies: {}".format(len(missing)))
-    print("missing idx: {}".format(missing))
-
-    for i in missing:
-       print(np.where(ratings[:, 2] == i))
-
-    print("no missing idx in ratings")
-
-
 if __name__ == "__main__":
-    dataset = dataGenerator(dataPath=r"./dataset",
+    dataset = dataGenerator(dataPath=r"./dataset/MovieLens1M",
                             ratingBinThreshold=3, maxSequenceLen=10,
                             splitRatio=0.8,
                             splitMehtod='behavior')
-    print(dataset.rowData)
-    print(dataset.label)
+    print(dataset.userFeatures.shape)
     print(dataset.userFeatures)
+    print(dataset.movieFeatures.shape)
     print(dataset.movieFeatures)
 
     print(dataset.trainRowData.shape)
@@ -282,11 +268,7 @@ if __name__ == "__main__":
     print(dataset.trainLabel.shape)
     print(dataset.trainLabel)
 
-    print(len(dataset.testLabel))
-
-    testRecode = 0
-    for i in range(len(dataset.testRowData)):
-        testRecode += dataset.testRowData[i].shape[0]
-        if dataset.testRowData[i].shape[0] != dataset.testLabel[i].shape[0]:
-            print("Error!")
-    print(testRecode)
+    print(dataset.testRowData.shape)
+    print(dataset.testRowData)
+    print(dataset.testLabel.shape)
+    print(dataset.testLabel)
